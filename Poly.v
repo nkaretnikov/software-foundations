@@ -761,7 +761,7 @@ Proof. reflexivity.  Qed.
     7. *)
 
 Definition filter_even_gt7 (l : list nat) : list nat :=
-  filter (fun x => andb (evenb x) (negb (blt_nat x 8))) l.
+  filter (fun x => andb (evenb x) (blt_nat 7 x)) l.
 
 Example test_filter_even_gt7_1 :
   filter_even_gt7 [1;2;6;9;10;3;12;8] = [10;12;8].
