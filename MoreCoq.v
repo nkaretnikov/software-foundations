@@ -68,7 +68,10 @@ Theorem silly_ex :
      evenb 3 = true ->
      oddb 4 = true.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros eq1 eq2.
+  apply eq1.
+  apply eq2.
+Qed.
 (** [] *)
 
 (** To use the [apply] tactic, the (conclusion of the) fact
@@ -107,14 +110,25 @@ Theorem rev_exercise1 : forall (l l' : list nat),
      l = rev l' ->
      l' = rev l.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros l l' H.
+  rewrite H.
+  symmetry.
+  apply rev_involutive.
+Qed.
 (** [] *)
 
 (** **** Exercise: 1 star, optional (apply_rewrite) *)
 (** Briefly explain the difference between the tactics [apply] and
     [rewrite].  Are there situations where both can usefully be
     applied?
-  (* FILL IN HERE *)
+
+[apply] applies a hypothesis or a lemma if it matches the goal
+/exactly/.  If the statement being applied is an implication, then the
+premises of this implication will be added to the list of subgoals
+needing to be proved.
+
+[rewrite] substitutes a part of the goal using a hypothesis or a
+lemma; it cannot be used if a hypothesis contains [forall].
 *)
 (** [] *)
 
@@ -174,7 +188,11 @@ Example trans_eq_exercise : forall (n m o p : nat),
      (n + p) = m ->
      (n + p) = (minustwo o). 
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n m o p eq1 eq2.
+  apply trans_eq with (m:=m).
+  apply eq2.
+  apply eq1.
+Qed.
 (** [] *)
 
 
@@ -260,7 +278,7 @@ Example sillyex1 : forall (X : Type) (x y z : X) (l j : list X),
      y :: l = x :: j ->
      x = y.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. inversion H0. reflexivity. Qed.
 (** [] *)
 
 Theorem silly6 : forall (n : nat),
@@ -281,7 +299,9 @@ Example sillyex2 : forall (X : Type) (x y z : X) (l j : list X),
      y :: l = z :: j ->
      x = z.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  inversion H.  (* contradiction *)
+Qed.
 (** [] *)
 
 (** While the injectivity of constructors allows us to reason
@@ -304,12 +324,24 @@ Proof. intros A B f x y eq. rewrite eq.  reflexivity.  Qed.
 Theorem beq_nat_0_l : forall n,
    beq_nat 0 n = true -> n = 0.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n eq.
+  destruct n as [|n'].
+  Case "n = 0".
+    reflexivity.
+  Case "n = S n'".
+    inversion eq.
+Qed.
 
 Theorem beq_nat_0_r : forall n,
    beq_nat n 0 = true -> n = 0.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n eq.
+  destruct n as [|n'].
+  Case "n = 0".
+    reflexivity.
+  Case "n = S n'".
+    inversion eq.
+Qed.
 (** [] *)
 
 
@@ -374,7 +406,28 @@ Theorem plus_n_n_injective : forall n m,
 Proof.
   intros n. induction n as [| n'].
     (* Hint: use the plus_n_Sm lemma *)
-    (* FILL IN HERE *) Admitted.
+  Case "n = 0".
+    intros m eq.
+    simpl in eq.
+    destruct m as [|m'].
+      SCase "m = 0".
+        reflexivity.
+      SCase "m = S m'".
+        inversion eq.
+  Case "n = S n'".
+    intros m eq.
+    destruct m as [|m'].
+    SCase "m = 0".
+      inversion eq.
+    SCase "m = S m'".
+      simpl in eq.
+      rewrite <- plus_n_Sm in eq.
+      rewrite <- plus_n_Sm in eq.
+      inversion eq.
+      apply IHn' in H0.
+      inversion H0.
+      reflexivity.
+Qed.
 (** [] *)
 
 (* ###################################################### *)
@@ -520,14 +573,60 @@ Proof.
 Theorem beq_nat_true : forall n m,
     beq_nat n m = true -> n = m.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n.
+  induction n as [| n'].
+  Case "n = 0".
+    intros m eq. destruct m as [| m'].
+    SCase "m = 0". reflexivity.
+    SCase "m = S m'". inversion eq.
+  Case "n = S n'".
+    intros m eq. destruct m as [| m'].
+    SCase "m = 0". inversion eq.
+    SCase "m = S m'". apply f_equal. inversion eq. apply IHn' in H0.
+      inversion H0. reflexivity. Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars, advanced (beq_nat_true_informal) *)
 (** Give a careful informal proof of [beq_nat_true], being as explicit
     as possible about quantifiers. *)
 
-(* FILL IN HERE *)
+(*
+We are going to show the goal by doing induction on [n].  We need to
+consider two cases:
+
+* If [n = 0], then we must show that [beq_nat 0 m = true -> 0 = m] for
+  all [m].  Assuming that the equality holds, let's consider a
+  particular [m] and perform case analysis on it:
+
+  * If [m = 0] then [beq_nat 0 0 = true], we must show that
+      0 = 0
+    which is trivial.
+
+  * Now, if [m = S m'] then [beq_nat 0 (S m') = true], we need to show that
+      0 = S m'
+    The hypothesis reduces to [false = true], which is not true.
+    Anything can be proved with such a hypothesis.  So we discard the
+    current goal.
+
+* Now, if we assume that
+    for all m, beq_nat n m = true -> n = m,
+  we must show that
+    for all m, beq_nat (S n') m = true -> (S n') = m.
+
+  Again, we consider a particular [m] and assume that [beq_nat (S n') m
+  = true] holds.  Then, we perform case analysis on [m]:
+
+  * If [m = 0], then [S n' = 0], which is false, so we discard this case.
+
+  * If [m = S m'], then [beq_nat (S n') (S m') = true], and we must show
+    that [S n' = S m'].  Since the [S] constructor is injective, we can
+    rewrite
+      beq_nat (S n') (S m') = true
+    as
+      beq_nat n' m' = true
+    and the goal as [n' = m'], which is immediate from the induction
+    hypothesis.  Qed.
+*)
 (** [] *)
 
 
@@ -694,7 +793,24 @@ Theorem index_after_last: forall (n : nat) (X : Type) (l : list X),
      length l = n ->
      index n l = None.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n X l.
+  generalize dependent n.
+  induction l as [|x xt].
+  Case "l = []".
+    reflexivity.
+  Case "l = x::xt".
+    simpl.
+    intros n eq.
+    destruct n as [|n'].
+    SCase "n = 0".
+      rewrite <- beq_nat_refl.
+      inversion eq.             (* contradiction *)
+    SCase "n = S n'".
+      simpl.
+      inversion eq.
+      apply IHxt.
+      reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars, advanced, optional (index_after_last_informal) *)
@@ -704,8 +820,39 @@ Proof.
      _Theorem_: For all sets [X], lists [l : list X], and numbers
       [n], if [length l = n] then [index n l = None].
  
-     _Proof_:
-     (* FILL IN HERE *)
+     _Proof_: Let [X] be some type and [l] be a list of the type [X], then we must
+     show that [for all numbers n, if length l = n -> index n l = None].
+
+     Let's start by performing induction on [l]:
+
+     * If [l = []], then we must show that
+         for all numbers n, if length [] = n -> index n [] = None,
+       which is trivial.
+   
+     * If [l = x::xt], then we must show that
+         for all numbers n, if length (x :: xt) = n,
+           then index n (x :: xt) = None
+       assuming that
+         for all numbers n, if length xt = n, then
+           index n xt = None.
+   
+       We consider some list of the type [X] and some natural number
+       [n].  After performing simplification, we must show that
+          if beq_nat n 0 then Some x else index (pred n) xt = None.
+   
+       If [n = 0], our hypothesis becomes
+         S (length xt) = 0,
+       which is a contradiction (the constructors are different), so we
+       discard this case.
+   
+       If [n = S n'], we assume that
+         S (length xt) = S n'
+       holds, and we must show that
+         index n' xt = None
+       holds.
+       Since the [S] constructor is injective, we can assume that
+         length xt = n'
+       holds.  Then we apply the induction hypothesis.  Qed.
 []
 *)
 
@@ -717,7 +864,29 @@ Theorem length_snoc''' : forall (n : nat) (X : Type)
      length l = n ->
      length (snoc l v) = S n. 
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n X v l.
+  generalize dependent n.
+  induction l as [|x xt].
+  Case "l = []".
+    intros n eq.
+    simpl.
+    inversion eq.
+    reflexivity.
+  Case "l = x::xt".
+    intros n eq.
+    simpl.
+    apply f_equal.
+    simpl in eq.
+    destruct n as [|n'].
+    SCase "n = 0".
+      inversion eq.             (* contradiction *)
+    SCase "n = S n'".
+      inversion eq.
+      apply IHxt in H0.
+      rewrite eq.
+      rewrite H0.
+      reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars, optional (app_length_cons) *)
@@ -728,17 +897,63 @@ Theorem app_length_cons : forall (X : Type) (l1 l2 : list X)
      length (l1 ++ (x :: l2)) = n ->
      S (length (l1 ++ l2)) = n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X l1 l2 x n.
+  generalize dependent n.
+  induction l1 as [|l lt].
+  Case "l1 = []".
+    simpl. intros n eq. apply eq.
+  Case "l1 = l::lt".
+    simpl.
+    intros n eq.
+    destruct n as [|n'].
+    SCase "n = 0".
+      inversion eq.             (* contradiction *)
+    SCase "n = S n'".
+      inversion eq. apply IHlt in H0.
+      rewrite H0. rewrite eq. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 4 stars, optional (app_length_twice) *)
 (** Prove this by induction on [l], without using app_length. *)
 
+Theorem app_length_cons_r:
+  forall (X : Type) (l1 l2 : list X) (x : X) (n : nat),
+  S (length (l1 ++ l2)) = n -> length (l1 ++ x :: l2) = n.
+Proof.
+  intros X l1 l2 x n eq. generalize dependent n.
+  induction l1 as [|y yt].
+  Case "l1 = []".
+    intros. rewrite <- eq. reflexivity.
+  Case "l1 = y::yt".
+    intros.
+    destruct n as [|n'].
+    SCase "n = 0".
+      inversion eq. (* contradiction *)
+    SCase "n = S n'".
+      inversion eq. apply IHyt in H0.
+      apply eq_add_S in eq. rewrite <- H0 in eq.
+      inversion eq. rewrite H1. simpl. reflexivity.
+Qed.
+
 Theorem app_length_twice : forall (X:Type) (n:nat) (l:list X),
      length l = n ->
      length (l ++ l) = n + n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X n l.
+  generalize dependent n.
+  induction l as [|x xt].
+  Case "l = []".
+    simpl. intros n eq. inversion eq. reflexivity.
+  Case "l = x::xt".
+    simpl. intros n eq.
+    destruct n as [|n'].
+      SCase "n = 0".
+        inversion eq.           (* contradiction *)
+      SCase "n = S n'".
+        inversion eq. apply IHxt in H0. rewrite eq. simpl. apply f_equal.
+        apply app_length_cons_r. rewrite H0. rewrite plus_n_Sm. reflexivity.
+Qed.
 (** [] *)
 
 
@@ -752,7 +967,23 @@ Theorem double_induction: forall (P : nat -> nat -> Prop),
   (forall m n, P m n -> P (S m) (S n)) ->
   forall m n, P m n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  generalize dependent m.
+  induction n as [|n'].
+  Case "n = 0".
+    intros.
+    induction m as [|m'].
+    SCase "m = 0".
+      apply H.
+    SCase "m = S m'".
+      apply H0. apply IHm'.
+  Case "n = S n'".
+    induction m as [|m'].
+    SCase "m = 0".
+      apply H1. apply IHn'.
+    SCase "m = S m'".
+      apply H2. apply IHn'.
+Qed.
 (** [] *)
 
 
@@ -799,7 +1030,13 @@ Proof.
 Theorem override_shadow : forall (X:Type) x1 x2 k1 k2 (f : nat->X),
   (override (override f k1 x2) k1 x1) k2 = (override f k1 x1) k2.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. unfold override.
+  destruct (beq_nat k1 k2).
+  Case "beq_nat k1 k2 = true".
+    reflexivity.
+  Case "beq_nat k1 k2 = false".
+    reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars, optional (combine_split) *)
@@ -809,7 +1046,15 @@ Theorem combine_split : forall X Y (l : list (X * Y)) l1 l2,
   split l = (l1, l2) ->
   combine l1 l2 = l.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X Y l.
+  induction l as [|x xt].
+  Case "l = []".
+    intros. simpl in H. inversion H. reflexivity.
+  Case "l = x::xt".
+    intros. simpl in H. destruct x.
+    destruct (split xt). simpl in H.
+    inversion H. simpl. apply f_equal. apply IHxt. reflexivity.
+Qed.
 (** [] *)
 
 (** Sometimes, doing a [destruct] on a compound expression (a
@@ -878,7 +1123,18 @@ Theorem bool_fn_applied_thrice :
   forall (f : bool -> bool) (b : bool), 
   f (f (f b)) = f b.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  destruct b.
+  destruct (f true) eqn:eq1.
+  rewrite eq1. apply eq1.
+  destruct (f false) eqn:eq2.
+  rewrite eq1. reflexivity.
+  apply eq2.
+  destruct (f false) eqn:eq1.
+  destruct (f true) eqn:eq2.
+  apply eq2. apply eq1.
+  rewrite eq1. apply eq1.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars (override_same) *)
@@ -886,7 +1142,14 @@ Theorem override_same : forall (X:Type) x1 k1 k2 (f : nat->X),
   f k1 = x1 -> 
   (override f k1 x1) k2 = f k2.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  unfold override.
+  destruct (beq_nat k1 k2) eqn:eq.
+  Case "beq_nat k1 k2 = true".
+    rewrite <- H. apply f_equal. apply beq_nat_true in eq. apply eq.
+  Case "beq_nat k1 k2 = false".
+    reflexivity.
+Qed.
 (** [] *)
 
 (* ################################################################## *)
@@ -971,7 +1234,23 @@ Proof.
 Theorem beq_nat_sym : forall (n m : nat),
   beq_nat n m = beq_nat m n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  generalize dependent m.
+  induction n as [|n'].
+  Case "n = 0".
+    destruct m as [|m'].
+    SCase "m = 0".
+      reflexivity.
+    SCase "m = S m'".
+      reflexivity.
+  Case "n = S n'".
+    intros.
+    destruct m as [|m'].
+    SCase "m = 0".
+      reflexivity.
+    SCase "m = S m'".
+      simpl. apply IHn'.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars, advanced, optional (beq_nat_sym_informal) *)
@@ -980,9 +1259,34 @@ Proof.
 
    Theorem: For any [nat]s [n] [m], [beq_nat n m = beq_nat m n].
 
-   Proof:
-   (* FILL IN HERE *)
-[]
+   Proof: Let's start by performing induction on [n].
+   There are two cases to consider:
+   * First, we must show that [beq_nat 0 m = beq_nat m 0] for all [m].
+     Let's perform case analysis on [m]:
+     * If [m = 0], then we must show that
+         beq_nat 0 0 = beq_nat 0 0
+       which is trivial.
+     * If [m = S m'], then we must show that
+         beq_nat 0 (S m') = beq_nat (S m') 0
+       Simplifying we get
+         false = false
+       which holds.
+   * Now, we need to show that for all [m]
+       beq_nat (S n') m = beq_nat m (S n')
+     assuming that for all [m]
+       beq_nat n' m = beq_nat m n'
+     We perform case analysis on [m] again.
+     * If [m = 0], then we must show that
+         beq_nat (S n') 0 = beq_nat 0 (S n')
+       Simplifying we get
+         false = false
+       which holds.
+     * If [m = S m'], then we must show that
+         beq_nat (S n') (S m') = beq_nat (S m') (S n')
+       By the definition of [beq_nat], we get
+         beq_nat n' m' = beq_nat m' n'
+       Then we apply the induction hypothesis. Qed.
+ []
  *)
 
 (** **** Exercise: 3 stars, optional (beq_nat_trans) *)
@@ -991,7 +1295,13 @@ Theorem beq_nat_trans : forall n m p,
   beq_nat m p = true ->
   beq_nat n p = true.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  rewrite <- H.
+  apply f_equal.
+  apply beq_nat_true in H0.
+  inversion H0.
+  reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars, advanced (split_combine) *)
@@ -1006,14 +1316,37 @@ Proof.
     things than necessary.  Hint: what property do you need of [l1]
     and [l2] for [split] [combine l1 l2 = (l1,l2)] to be true?)  *)
 
-Definition split_combine_statement : Prop :=
-(* FILL IN HERE *) admit.
+Definition split_combine_statement := forall X Y (l1 : list X) (l2 : list Y),
+  length l1 = length l2 -> split (combine l1 l2) = (l1, l2).
 
 Theorem split_combine : split_combine_statement.
 Proof.
-(* FILL IN HERE *) Admitted.
-
-
+  unfold split_combine_statement.
+  intros.
+  generalize dependent l2.
+  induction l1 as [|x xt].
+  Case "l1 = []".
+    intros.
+    simpl.
+    destruct l2 as [|y yt].
+    SCase "l2 = []".
+      reflexivity.
+    SCase "l2 = y yt".
+      inversion H.
+  Case "l1 = x::xt".
+    intros.
+    destruct l2 as [|y yt].
+    SCase "l2 = []".
+      simpl.
+      inversion H.
+    SCase "l2 = y::yt".
+      simpl.
+      inversion H.
+      apply IHxt in H1.
+      rewrite H1.
+      simpl.
+      reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars (override_permute) *)
@@ -1021,7 +1354,27 @@ Theorem override_permute : forall (X:Type) x1 x2 k1 k2 k3 (f : nat->X),
   beq_nat k2 k1 = false ->
   (override (override f k2 x2) k1 x1) k3 = (override (override f k1 x1) k2 x2) k3.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  unfold override.
+  destruct (beq_nat k1 k3) eqn:eq1.
+  Case "k1 == k3".
+    destruct (beq_nat k2 k3) eqn:eq2.
+    SCase "k2 == k3".
+      apply beq_nat_true in eq1.
+      apply beq_nat_true in eq2.
+      rewrite eq1 in H.
+      rewrite eq2 in H.
+      rewrite <- beq_nat_refl in H.
+      inversion H.              (* contradiction *)
+    SCase "k2 /= k3".
+      reflexivity.
+  Case "k1 /= k3".
+    destruct (beq_nat k2 k3) eqn:eq2.
+    SCase "k2 == k3".
+      reflexivity.
+    SCase "k2 /= k3".
+      reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars, advanced (filter_exercise) *)
@@ -1032,7 +1385,26 @@ Theorem filter_exercise : forall (X : Type) (test : X -> bool)
      filter test l = x :: lf ->
      test x = true.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  generalize dependent x.
+  generalize dependent lf.
+  induction l as [|y yt].
+  Case "l = []".
+    intros.
+    simpl in H.
+    inversion H.                (* contradiction *)
+  Case "l = y::yt".
+    intros.
+    simpl in H.
+    destruct (test y) eqn:eq.
+    SCase "test y = true".
+      inversion H.
+      rewrite H1 in eq.
+      apply eq.
+    SCase "test y = false".
+      apply IHyt in H.
+      apply H.
+Qed.
 (** [] *)
 
 (** **** Exercise: 4 stars, advanced (forall_exists_challenge) *)
@@ -1061,7 +1433,79 @@ Proof.
     Prove that [existsb'] and [existsb] have the same behavior.
 *)
 
-(* FILL IN HERE *)
+Fixpoint forallb {X:Type} (f:X->bool) (xs:list X) : bool :=
+  match xs with
+    | []    => true
+    | x::xt => if f x then forallb f xt else false
+  end.
+
+Example forallb_oddb: forallb oddb [1;3;5;7;9] = true.
+Proof. reflexivity. Qed.
+Example forallb_negb: forallb negb [false;false] = true.
+Proof. reflexivity. Qed.
+Example forallb_evenb: forallb evenb [0;2;4;5] = false.
+Proof. reflexivity. Qed.
+Example forallb_beq_nat: forallb (beq_nat 5) [] = true.
+Proof. reflexivity. Qed.
+
+Fixpoint existsb {X:Type} (f:X->bool) (xs:list X) : bool :=
+  match xs with
+    | []    => false
+    | x::xt => if f x then true else existsb f xt
+  end.
+
+Example existsb_beq_nat: existsb (beq_nat 5) [0;2;3;6] = false.
+Proof. reflexivity. Qed.
+Example existsb_andb: existsb (andb true) [true;true;false] = true.
+Proof. reflexivity. Qed.
+Example existsb_oddb: existsb oddb [1;0;0;0;0;3] = true.
+Proof. reflexivity. Qed.
+Example existsb_evenb: existsb evenb [] = false.
+Proof. reflexivity. Qed.
+
+Definition existsb' {X:Type} (f:X->bool) (xs:list X) : bool :=
+  if forallb (fun x => negb (f x)) xs then false else true.
+
+Example existsb'_beq_nat: existsb' (beq_nat 5) [0;2;3;6] = false.
+Proof. reflexivity. Qed.
+Example existsb'_andb: existsb' (andb true) [true;true;false] = true.
+Proof. reflexivity. Qed.
+Example existsb'_oddb: existsb' oddb [1;0;0;0;0;3] = true.
+Proof. reflexivity. Qed.
+Example existsb'_evenb: existsb' evenb [] = false.
+Proof. reflexivity. Qed.
+
+Lemma existsb'_orb: forall (X:Type) (f:X->bool) (x:X) (xt:list X),
+  existsb' f (x :: xt) = orb (f x) (existsb' f xt).
+Proof.
+  intros.
+  unfold existsb'.
+  simpl.
+  destruct (f x).
+  Case "f x = true".
+    simpl. reflexivity.
+  Case "f x = false".
+    simpl. reflexivity.
+Qed.
+
+Theorem existsb_existsb'_eq : forall (X:Type) (f:X->bool) (xs:list X),
+  existsb f xs = existsb' f xs.
+Proof.
+  intros.
+  generalize dependent f.
+  induction xs as [|x xt].
+  Case "xs = []".
+    intros. reflexivity.
+  Case "xs = x::xt".
+    intros.
+    simpl.
+    rewrite existsb'_orb.
+    destruct (f x).
+    SCase "f x = true".
+      simpl. reflexivity.
+    SCase "f x = false".
+    simpl. apply IHxt.
+Qed.
 (** [] *)
 
 (* $Date: 2014-02-04 07:15:43 -0500 (Tue, 04 Feb 2014) $ *)
