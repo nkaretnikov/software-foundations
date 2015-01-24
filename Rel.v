@@ -91,14 +91,31 @@ Proof.
 (** Show that the [total_relation] defined in Logic.v is not a partial
     function. *)
 
-(* FILL IN HERE *)
+Theorem total_relation_not_a_partial_function :
+  ~ (partial_function total_relation).
+Proof.
+  unfold "~". unfold partial_function.
+  intros.
+  assert (0 = 1) as Nonsense.
+    Case "Proof of assertion".
+    apply H with (x := 0).
+    apply tot.
+    apply tot.
+  inversion Nonsense.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars, optional *)
 (** Show that the [empty_relation] defined in Logic.v is a partial
     function. *)
 
-(* FILL IN HERE *)
+Theorem empty_relation_a_partial_function :
+  partial_function empty_relation.
+Proof.
+  unfold partial_function.
+  intros.
+  inversion H.
+Qed.
 (** [] *)
 
 (** A _reflexive_ relation on a set [X] is one for which every element
@@ -147,7 +164,9 @@ Proof.
   unfold lt. unfold transitive.
   intros n m o Hnm Hmo.
   induction Hmo as [| m' Hm'o].
-    (* FILL IN HERE *) Admitted.
+    apply le_S. apply Hnm.
+    apply le_S. apply IHHm'o.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars, optional *)
@@ -159,7 +178,13 @@ Proof.
   unfold lt. unfold transitive.
   intros n m o Hnm Hmo.
   induction o as [| o'].
-  (* FILL IN HERE *) Admitted.
+  Case "o = 0".
+    inversion Hmo.
+  Case "o = S o'".
+    inversion Hmo.
+    apply le_S. rewrite <- H0. apply Hnm.
+    apply le_S. apply IHo'. apply H0.
+Qed.
 (** [] *)
 
 (** The transitivity of [le], in turn, can be used to prove some facts
@@ -176,7 +201,12 @@ Proof.
 Theorem le_S_n : forall n m,
   (S n <= S m) -> (n <= m).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  inversion H.
+  apply le_n.
+  apply le_Sn_le.
+  apply H1.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars, optional (le_Sn_n_inf) *)
@@ -188,7 +218,26 @@ Proof.
     the informal proof without doing the formal proof first.
  
     Proof:
-    (* FILL IN HERE *)
+    By the definition of [~]:
+      S n <= n -> False
+    That is, given [S n <= n], we must show [False].
+    Let's perform induction on [n].
+    In the first case we get
+      S 0 <= 0
+    in the hypothesis or
+      1 <= 0
+    which is a contradiction, so we can move to the next case.
+    Assuming that
+      S n' <= n' -> False
+    and
+      S (S n') <= S n'
+    we must show [False].  In other words, given
+      S (S n') <= S n'
+    we must show
+      S n' <= n'
+    By applying [le_S_n], we get
+      S (S n') <= S n'
+    in the goal, which completes the proof.
     []
  *)
 
@@ -196,7 +245,14 @@ Proof.
 Theorem le_Sn_n : forall n,
   ~ (S n <= n).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  unfold "~".
+  intros.
+  induction n as [|n'].
+  inversion H.
+  apply IHn'.
+  apply le_S_n.
+  apply H.
+Qed.
 (** [] *)
 
 (** Reflexivity and transitivity are the main concepts we'll need for
@@ -212,7 +268,12 @@ Definition symmetric {X: Type} (R: relation X) :=
 Theorem le_not_symmetric :
   ~ (symmetric le).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  unfold "~". unfold symmetric. intros.
+  assert (1 <= 0) as Nonsense.
+  apply H.
+  apply le_S. apply le_n.
+  inversion Nonsense.
+Qed.
 (** [] *)
 
 (** A relation [R] is _antisymmetric_ if [R a b] and [R b a] together
@@ -226,7 +287,23 @@ Definition antisymmetric {X: Type} (R: relation X) :=
 Theorem le_antisymmetric :
   antisymmetric le.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  unfold antisymmetric. intros a.
+  induction a as [|a'].
+  Case "a = 0".
+    intros. inversion H0. reflexivity.
+  Case "a = S a'".
+    intros.
+    destruct b as [|b'].
+    SCase "b = 0".
+      inversion H.
+    SCase "b = S b'".
+      apply le_S_n in H.
+      apply IHa' in H.
+      rewrite H.
+      reflexivity.
+      apply le_S_n in H0.
+      apply H0.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars, optional *)
@@ -235,7 +312,19 @@ Theorem le_step : forall n m p,
   m <= S p ->
   n <= p.
 Proof. 
-  (* FILL IN HERE *) Admitted.
+  unfold "<".
+  induction m as [|m'].
+  intros.
+  inversion H.
+  intros.
+  inversion H.
+  apply le_S_n in H0.
+  apply H0.
+  apply le_Sn_le in H0.
+  apply IHm'.
+  apply H2.
+  apply H0.
+Qed.
 (** [] *)
 
 (** A relation is an _equivalence_ if it's reflexive, symmetric, and
@@ -362,7 +451,15 @@ Theorem rsc_trans :
       refl_step_closure R y z ->
       refl_step_closure R x z.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X R x y z H.
+  induction H.
+  Case "rsc_refl".
+    intros. apply H.
+  Case "rsc_step".
+    intros. apply IHrefl_step_closure in H1.
+    apply rsc_step with y. apply H.
+    apply H1.
+Qed.
 (** [] *)
 
 (** Then we use these facts to prove that the two definitions of
@@ -374,6 +471,27 @@ Theorem rtc_rsc_coincide :
          forall (X:Type) (R: relation X) (x y : X),
   clos_refl_trans R x y <-> refl_step_closure R x y.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X R x y.
+  split.
+  Case "->".
+    intros. induction H.
+    SCase "rt_step".
+      apply rsc_R. apply H.
+    SCase "rt_refl".
+      apply rsc_refl.
+    SCase "rt_trans".
+      apply rsc_trans with y.
+      apply IHclos_refl_trans1.
+      apply IHclos_refl_trans2.
+  Case "<-".
+    intros. induction H.
+    SCase "rsc_refl".
+      apply rt_refl.
+    SCase "rsc_step".
+      apply rt_trans with y.
+      apply rt_step.
+      apply H.
+      apply IHrefl_step_closure.
+Qed.
 (** [] *)
 
