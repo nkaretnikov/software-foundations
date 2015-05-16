@@ -97,12 +97,17 @@ Qed.
 (** In English, what does the proposition 
       ex nat (fun n => beautiful (S n))
 ]] 
-    mean? *)
+    mean?
 
-(* FILL IN HERE *)
+There exists a natural number [n] whose successor is [beautiful].
 
-(*
 *)
+Theorem exists_succ : ex nat (fun n => beautiful (S n)).
+Proof.
+  exists 2.
+  apply b_3.
+Qed.
+
 (** **** Exercise: 1 star (dist_not_exists) *)
 (** Prove that "[P] holds for all [x]" implies "there is no [x] for
     which [P] does not hold." *)
@@ -110,7 +115,13 @@ Qed.
 Theorem dist_not_exists : forall (X:Type) (P : X -> Prop),
   (forall x, P x) -> ~ (exists x, ~ P x).
 Proof. 
-  (* FILL IN HERE *) Admitted.
+  intros.
+  unfold "~".
+  intros.
+  inversion H0 as [x' Hx'].
+  apply Hx'.
+  apply H.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars, optional (not_exists_dist) *)
@@ -122,7 +133,20 @@ Theorem not_exists_dist :
   forall (X:Type) (P : X -> Prop),
     ~ (exists x, ~ P x) -> (forall x, P x).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  unfold excluded_middle in H.
+  unfold "~" in H0.
+  unfold "~" in H.
+  destruct (H (P x)).           (* destruct P x in the context of LEM *)
+  Case "left".
+    apply H1.
+  Case "right".
+    (* Get rid of 'exists' by moving the hypothesis to the goal. *)
+    apply ex_falso_quodlibet.
+    apply H0.
+    exists x.
+    apply H1.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars (dist_exists_or) *)
@@ -132,7 +156,35 @@ Proof.
 Theorem dist_exists_or : forall (X:Type) (P Q : X -> Prop),
   (exists x, P x \/ Q x) <-> (exists x, P x) \/ (exists x, Q x).
 Proof.
-   (* FILL IN HERE *) Admitted.
+  unfold "<->".
+  intros.
+  split.
+  Case "left".
+    intros.
+    inversion H as [x Hx].
+    inversion Hx as [PxH|QxH].
+    SCase "left: P x".
+      left.
+      exists x.
+      apply PxH.
+    SCase "right: Q x".
+      right.
+      exists x.
+      apply QxH.
+  Case "right".
+    intros.
+    inversion H as [ExPx|ExQx].
+    SCase "left: P x".
+      inversion ExPx as [x PxH].
+      exists x.
+      left.
+      apply PxH.
+    SCase "right: Q x".
+      inversion ExQx as [x QxH].
+      exists x.
+      right.
+      apply QxH.
+Qed.
 (** [] *)
 
 (* ###################################################### *)
@@ -238,7 +290,14 @@ Proof.
 Theorem override_shadow' : forall (X:Type) x1 x2 k1 k2 (f : nat->X),
   (override' (override' f k1 x2) k1 x1) k2 = (override' f k1 x1) k2.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  unfold override'.
+  destruct (eq_nat_dec k1 k2).
+  Case "k1 = k2".
+    reflexivity.
+  Case "k1 <> k2".
+    reflexivity.
+Qed.
 (** [] *)
 
 
@@ -255,8 +314,49 @@ Proof.
     asserts that [P] is true for every element of the list [l]. *)
 
 Inductive all (X : Type) (P : X -> Prop) : list X -> Prop :=
-  (* FILL IN HERE *)
-.
+  | all_nil : all X P []
+  | all_cons : forall (x : X) (xs : list X),
+                 P x -> all X P xs -> all X P (x :: xs).
+
+(* The cons constructor is defined differently, but the definitions
+are equivalent. *)
+Inductive all_and (X : Type) (P : X -> Prop) : list X -> Prop :=
+  | all_and_nil : all_and X P []
+  | all_and_cons : forall (x : X) (xs : list X),
+                     P x /\ all_and X P xs -> all_and X P (x :: xs).
+
+Theorem all__all_and : forall (X : Type) (P : X -> Prop) (xs : list X),
+                         all X P xs -> all_and X P xs.
+Proof.
+  intros.
+  induction xs as [|y ys].
+  Case "xs = []".
+    apply all_and_nil.
+  Case "xs = y::ys".
+    apply all_and_cons.
+    inversion H.
+    split.
+    SCase "left".
+      apply H2.
+    SCase "right".
+      apply IHys. apply H3.
+Qed.
+
+Theorem all_and__all : forall (X : Type) (P : X -> Prop) (xs : list X),
+                         all_and X P xs -> all X P xs.
+Proof.
+  intros.
+  induction xs as [|y ys].
+  Case "xs = []".
+    apply all_nil.
+  Case "xs = y::ys".
+    inversion H.
+    inversion H1.
+    apply all_cons.
+    apply H3.
+    apply IHys.
+    apply H4.
+Qed.
 
 (** Recall the function [forallb], from the exercise
     [forall_exists_challenge] in chapter [Poly]: *)
@@ -274,7 +374,46 @@ Fixpoint forallb {X : Type} (test : X -> bool) (l : list X) : bool :=
     Are there any important properties of the function [forallb] which
     are not captured by your specification? *)
 
-(* FILL IN HERE *)
+Theorem forallb_holds :
+  forall X (test : X -> bool) (xs : list X),
+    forallb test xs = true <-> all X (fun x => test x = true) xs.
+Proof.
+  intros.
+  unfold "<->".
+  split.
+  Case "left".
+    intros.
+    induction xs as [|y ys].
+    SCase "xs = []".
+      apply all_nil.
+    SCase "xs = y::ys".
+      apply all_cons.
+      SSCase "P x".
+        simpl in H.
+        destruct (test y).
+        SSSCase "true".
+          reflexivity.
+        SSSCase "false".
+          inversion H.
+      SSCase "all X P xs".
+        apply IHys.
+        simpl in H.
+        destruct (test y).
+        SSSCase "true".
+          simpl in H. apply H.
+        SSSCase "false".
+          inversion H.
+  Case "right".
+    intros.
+    induction H as [|y ys].
+    SCase "xs = []".
+      reflexivity.
+    SCase "xs = y::ys".
+      simpl.
+      rewrite H.
+      simpl.
+      apply IHall.
+Qed.
 (** [] *)
 
 (** **** Exercise: 4 stars, advanced (filter_challenge) *)
@@ -302,7 +441,276 @@ Fixpoint forallb {X : Type} (test : X -> bool) (l : list X) : bool :=
     for one list to be a merge of two others.  Do this with an
     inductive relation, not a [Fixpoint].)  *)
 
-(* FILL IN HERE *)
+Inductive in_order_merge {X : Type} : (list X) -> (list X) -> (list X) -> Prop :=
+  | iom_nil : forall (xs : list X),
+                in_order_merge [] xs xs
+  | iom_seq_l : forall (x : X) (xs ys zs : list X),
+                  in_order_merge xs ys zs -> in_order_merge (x::xs) ys (x::zs)
+  | iom_seq_r : forall (y : X) (xs ys zs : list X),
+                  in_order_merge xs ys zs -> in_order_merge xs (y::ys) (y::zs).
+
+Example in_order_merge_2__0_1__0_1_2 :
+  in_order_merge [2] [0;1] [0;1;2].
+Proof.
+  apply iom_seq_r.
+  apply iom_seq_r.
+  apply iom_seq_l.
+  apply iom_nil.
+Qed.
+
+Example in_order_merge_1_6_2__4_3 :
+  in_order_merge [1;6;2] [4;3] [1;4;6;2;3].
+Proof.
+  apply iom_seq_l.
+  apply iom_seq_r.
+  apply iom_seq_l.
+  apply iom_seq_l.
+  apply iom_nil.
+Qed.
+
+Example not_in_order_merge_1_6_2__4_3 :
+  not (in_order_merge [1;6;2] [4;3] [1;4;2;6;3]).
+Proof.
+  unfold "~".
+  intros.
+  inversion H.
+  inversion H3.
+  inversion H7.
+Qed.
+
+Theorem iom_nil_r : forall {X : Type} (xs : list X),
+                      in_order_merge xs [] xs.
+Proof.
+  intros.
+  induction xs as [|y ys].
+  Case "xs = []".
+    apply iom_nil.
+  Case "xs = y::ys".
+    apply iom_seq_l. apply IHys.
+Qed.
+
+Theorem not_iom_nil : forall {X : Type} (xs ys : list X),
+                        xs <> [] ->
+                        ys <> [] ->
+                        not (in_order_merge xs ys []).
+Proof.
+  destruct xs as [|z zs].
+  Case "xs = []".
+    unfold "~".
+    intros.
+    apply H.
+    reflexivity.
+  Case "xs = z::zs".
+    unfold "~".
+    intros.
+    inversion H1.
+Qed.
+
+Theorem iom_symmetry : forall (X : Type) (xs ys zs : list X),
+                         in_order_merge xs ys zs <-> in_order_merge ys xs zs.
+Proof.
+  unfold "<->".
+  split.
+  Case "left".
+    intros.
+    induction H.
+    SCase "iom_nil".
+      apply iom_nil_r.
+    SCase "iom_seq_l".
+      apply iom_seq_r.
+      apply IHin_order_merge.
+    SCase "iom_seq_r".
+      apply iom_seq_l.
+      apply IHin_order_merge.
+  Case "right".
+    intros.
+    induction H.
+    SCase "iom_nil".
+      apply iom_nil_r.
+    SCase "iom_seq_l".
+      apply iom_seq_r.
+      apply IHin_order_merge.
+    SCase "iom_seq_r".
+      apply iom_seq_l.
+      apply IHin_order_merge.
+Qed.
+
+(* https://coq.inria.fr/distrib/current/refman/Reference-Manual022.html *)
+Class Eq (A : Type) := {
+  eqb : A -> A -> bool ;
+  eqb_leibniz : forall x y, eqb x y = true -> x = y ;
+  leibniz_eqb : forall x y, x = y -> eqb x y = true }.
+
+Instance Eq_nat : Eq nat :=
+  { eqb x y := beq_nat x y }.
+(* eqb_leibniz *)
+  intros. apply beq_nat_true. apply H.
+(* leibniz_eqb *)
+  induction x as [|x'].
+    intros.
+    rewrite <- H. reflexivity.
+    intros. destruct y as [|y'].
+      inversion H.
+      simpl. apply IHx'. inversion H. reflexivity.
+Defined.
+
+Fixpoint beq_list {X : Type} {eq : Eq X} (xs ys : list X) : bool :=
+  match (xs, ys) with
+    | ([]   , []   ) => true
+    | ([]   , _::_ ) => false
+    | (_::_ , []   ) => false
+    | (x::xt, y::yt) =>
+      if eqb x y
+      then beq_list xt yt
+      else false
+  end.
+
+Instance Eq_list {X : Type} {eq : Eq X} : Eq (list X) :=
+  { eqb xs ys := beq_list xs ys }.
+Proof.
+(* eqb_leibniz *)
+  induction x as [|n ns].
+  Case "x = []".
+    intros.
+    destruct y as [|m ms].
+    SCase "y = []".
+      reflexivity.
+    SCase "y = m::ms".
+      inversion H.
+  Case "x = n::ns".
+    destruct y as [|m ms].
+    SCase "y = []".
+      intros.
+      inversion H.
+    SCase "y = m::ms".
+      intros.
+      inversion H.
+      destruct (eqb n m) eqn:Heqb.
+      Focus 2.
+      SSCase "false".
+        inversion H1.
+      SSCase "true".
+        apply eqb_leibniz in Heqb.
+        rewrite Heqb.
+        apply IHns in H1.
+        rewrite H1.
+        reflexivity.
+(* leibniz_eqb *)
+  induction x as [|x xt].
+    intros. rewrite <- H. reflexivity.
+    intros. simpl. destruct y as [|y yt].
+      inversion H.
+      destruct (eqb x y) eqn:eqb_x_y.
+        apply IHxt. inversion H. reflexivity.
+        inversion H. inversion eqb_x_y.
+        apply leibniz_eqb in H1. rewrite H1 in H3. inversion H3.
+Defined.
+
+Fixpoint elem {X : Type} {eq : Eq X} (x : X) (xs : list X) : bool :=
+  match xs with
+    | []    => false
+    | y::ys => if eqb x y
+               then true
+               else elem x ys
+  end.
+
+Theorem elem_nil_false : forall {X : Type} {eq : Eq X} (x : X),
+                           elem x [] = false.
+Proof. reflexivity. Qed.
+
+Theorem elem_x_y__elem_x_y_ys :
+  forall {X : Type} {eq : Eq X} (x y : X) (ys : list X),
+    elem x [y]     = true ->
+    elem x (y::ys) = true.
+Proof.
+  intros.
+  unfold elem in H.
+  destruct (eqb x y) eqn:Heqb_x_y.
+  Case "true".
+    simpl. rewrite Heqb_x_y. reflexivity.
+  Case "false".
+    inversion H.
+Qed.
+
+(* XXX: Prove. *)
+Theorem iom_elem : forall {X : Type} {eq : Eq X} (x : X) (l l1 l2 : list X),
+                     in_order_merge l1 l2 l ->
+                     elem x l = true ->
+                     elem x l1 = true \/ elem x l2 = true.
+Proof.
+Abort.
+
+Fixpoint is_in_order_merge {X : Type} {eq_x : Eq X} {eq_list : Eq (list X)}
+                           (l1 l2 l : list X) : bool :=
+  match (l1, l2, l) with
+    | ([], l2, l)
+      => if eqb l2 l then true else false
+    | ((x::xs), (y::ys), (zy::zx::zs))
+      => andb (andb (eqb x zx) (eqb y zy))
+              (is_in_order_merge xs ys zs)
+    | ((x::xs), ys, (z::zs))
+      => andb (eqb x z) (is_in_order_merge xs ys zs)
+    | (_ :: _, [], [])
+      => false
+    | (_ :: _, _ :: _, [])
+      => false
+  end.
+
+Theorem eqb_refl : forall {X : Type} {eq_x : Eq X} (x : X), eqb x x = true.
+Proof.
+  intros. apply leibniz_eqb. reflexivity.
+Qed.
+
+Theorem eqb_uncons : forall {X : Type} {eq_x : Eq X} {eq_list : Eq (list X)}
+                            (x : X) (xs ys : list X) (b : bool),
+                       eqb (x :: xs) (x :: ys) = b ->
+                       eqb xs ys = b.
+Proof.
+  intros.
+  destruct (eqb xs ys) eqn:Heqb_xs_ys.
+  Case "eqb xs ys = true".
+    destruct b.
+    SCase "b = true".
+      reflexivity.
+    SCase "b = false".
+      apply eqb_leibniz in Heqb_xs_ys.
+      rewrite <- Heqb_xs_ys in H.
+      assert (Hcontra: eqb (x :: xs) (x :: xs) = true). apply eqb_refl.
+      rewrite Hcontra in H.
+      inversion H.
+  Case "eqb xs ys = false".
+    destruct b.
+    SCase "b = true".
+      apply eqb_leibniz in H.
+      inversion H.
+      rewrite <- H1 in Heqb_xs_ys.
+      assert (Hcontra: eqb xs xs = true). apply eqb_refl.
+      rewrite Hcontra in Heqb_xs_ys.
+      inversion Heqb_xs_ys.
+    SCase "b = false".
+      reflexivity.
+Qed.
+
+(* XXX: Prove these. *)
+Theorem iom__is_iom :
+  forall {X : Type} {eq_x : Eq X} {eq_list : Eq (list X)} (l1 l2 l : list X),
+    in_order_merge l1 l2 l -> is_in_order_merge l1 l2 l = true.
+Proof.
+Abort.
+
+Theorem is_iom__iom :
+  forall {X : Type} {eq_x : Eq X} {eq_list : Eq (list X)} (l1 l2 l : list X),
+    is_in_order_merge l1 l2 l = true -> in_order_merge l1 l2 l.
+Proof.
+Abort.
+
+Theorem iom_filter : forall {X : Type} (test : X -> bool) (l l1 l2: list X),
+                       in_order_merge l1 l2 l ->
+                       filter test l1 = l1    ->
+                       filter test l2 = []    ->
+                       filter test l = l1.
+Proof.
+Abort.
 (** [] *)
 
 (** **** Exercise: 5 stars, advanced, optional (filter_challenge_2) *)
