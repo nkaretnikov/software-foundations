@@ -186,10 +186,13 @@ Print eight_is_beautiful'''.
 Theorem six_is_beautiful :
   beautiful 6.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  apply b_sum with (n := 3) (m := 3).
+  apply b_3.
+  apply b_3.
+Qed.
 
 Definition six_is_beautiful' : beautiful 6 :=
-  (* FILL IN HERE *) admit.
+  b_sum 3 3 b_3 b_3.
 (** [] *)
 
 (** **** Exercise: 1 star (nine_is_beautiful) *)
@@ -198,10 +201,13 @@ Definition six_is_beautiful' : beautiful 6 :=
 Theorem nine_is_beautiful :
   beautiful 9.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  apply b_sum with (n := 3) (m := 6).
+  apply b_3.
+  apply six_is_beautiful.
+Qed.
 
 Definition nine_is_beautiful' : beautiful 9 :=
-  (* FILL IN HERE *) admit.
+  b_sum 3 6 b_3 six_is_beautiful.
 (** [] *)
 
 (* ##################################################### *)
@@ -292,7 +298,8 @@ Definition beatiful_plus3'' : Prop :=
 (** Give a proof object corresponding to the theorem [b_times2] from Prop.v *)
 
 Definition b_times2': forall n, beautiful n -> beautiful (2*n) :=
-  (* FILL IN HERE *) admit.
+  fun (n : nat) => fun (H : beautiful n) =>
+    b_sum n (n + 0) H (b_sum n 0 H b_0).
 (** [] *)
 
 
@@ -301,7 +308,8 @@ Definition b_times2': forall n, beautiful n -> beautiful (2*n) :=
 (** Give a proof object corresponding to the theorem [gorgeous_plus13] from Prop.v *)
 
 Definition gorgeous_plus13_po: forall n, gorgeous n -> gorgeous (13+n):=
-   (* FILL IN HERE *) admit.
+  fun (n : nat) => fun (H : gorgeous n) =>
+    g_plus5 (8 + n) (g_plus5 (3 + n) (g_plus3 n H)).
 (** [] *)
 
 
@@ -333,6 +341,18 @@ Print and_example.
     [and_example] to avoid cluttering the proof object.  What would
     you guess the proof object will look like if we uncomment them?
     Try it and see. *)
+Theorem and_example' :
+  (beautiful 0) /\ (beautiful 3).
+Proof.
+  apply conj.
+   Case "left".  apply b_0.
+   Case "right".  apply b_3.  Qed.
+
+Print and_example'.
+(* and_example' =  *)
+(* conj (beautiful 0) (beautiful 3) (let Case := "left" in b_0) *)
+(*   (let Case := "right" in b_3) *)
+(*      : beautiful 0 /\ beautiful 3 *)
 (** [] *)
 
 Theorem and_commut : forall P Q : Prop, 
@@ -378,7 +398,53 @@ we get: *)
 (** Construct a proof object demonstrating the following proposition. *)
 
 Definition conj_fact : forall P Q R, P /\ Q -> Q /\ R -> P /\ R :=
-  (* FILL IN HERE *) admit.
+  ( fun (P Q R : Prop) (HPQ : P /\ Q) (HQR : Q /\ R) =>
+      conj P R
+           ((fun H : P => H)
+              match HPQ with
+                | conj HP HQ => HP
+              end)
+           ((fun H : R => H)
+              match HQR with
+                | conj HQ HR => HR
+              end)
+  ) : forall P Q R : Prop, P /\ Q -> Q /\ R -> P /\ R.
+
+(* Another way of defining [and_commut], which shows the idea more
+clearly, but requires to match twice.  It's easy to derive the
+original [and_commut] from this definition. *)
+
+Definition and_commut' : forall P Q, P /\ Q -> Q /\ P :=
+  ( fun (P Q : Prop) (H : P /\ Q) =>
+      conj Q P
+           ((fun H : Q => H)
+              match H with
+                | conj HP HQ => HQ
+              end)
+           ((fun H : P => H)
+              match H with
+                | conj HP HQ => HP
+           end)
+  ) : forall P Q : Prop, P /\ Q -> Q /\ P.
+
+(* Compare with [and_commut] again:
+
+   and_commut =
+     fun (P Q : Prop) (H : P /\ Q) =>
+       match H with
+         | conj HP HQ => conj Q P HQ HP
+       end
+     : forall P Q : Prop, P /\ Q -> Q /\ P
+
+which can be simplified further by dropping the type signature: *)
+
+Definition and_commut'' : forall P Q, P /\ Q -> Q /\ P :=
+  fun (P Q : Prop) (H : P /\ Q) =>
+    match H with
+      (* Match on the constructor, as always, and give the result of
+         the right type, [Q /\ P]: *)
+      | conj HP HQ => conj Q P HQ HP
+    end.
 (** [] *)
 
 
@@ -393,15 +459,22 @@ Definition conj_fact : forall P Q R, P /\ Q -> Q /\ R -> P /\ R :=
 
 Definition beautiful_iff_gorgeous :
   forall n, beautiful n <-> gorgeous n :=
-  (* FILL IN HERE *) admit.
+  fun (n : nat) =>
+    conj (beautiful n -> gorgeous n) (gorgeous n -> beautiful n)
+         (fun (H : beautiful n) => beautiful__gorgeous n H)
+         (fun (H : gorgeous n)  => gorgeous__beautiful n H).
 (** [] *)
 
 
 (** **** Exercise: 2 stars, optional (or_commut'') *)
 (** Try to write down an explicit proof object for [or_commut] (without
     using [Print] to peek at the ones we already defined!). *)
-
-(* FILL IN HERE *)
+Definition or_commut'' : forall P Q, P \/ Q -> Q \/ P :=
+  fun (P Q : Prop) (H : P \/ Q) =>
+    match H with
+      | or_introl HP => or_intror Q P HP
+      | or_intror HQ => or_introl Q P HQ
+    end.
 (** [] *)
 
 (** Recall that we model an existential for a property as a pair consisting of 
@@ -426,7 +499,15 @@ Definition snie : some_nat_is_even :=
 (** Complete the definition of the following proof object: *)
 
 Definition p : ex _ (fun n => beautiful (S n)) :=
-(* FILL IN HERE *) admit.
+  (* Verbose definition: *)
+  (* ex_intro nat (fun (n : nat) => beautiful (S n)) 2 b_3 *)
+  (*   : ex nat (fun (n : nat) => beautiful (S n)). *)
+
+  (* Less verbose:  *)
+  (* ex_intro nat (fun (n : nat) => beautiful (S n)) 2 b_3. *)
+
+  (* The least verbose: *)
+  ex_intro _ _ 2 b_3.
 (** [] *)
 
 
@@ -495,7 +576,11 @@ Example trans_eq_example' : forall (a b c d e f : nat),
      [c;d] = [e;f] ->
      [a;b] = [e;f].
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  apply (trans_eq _ _ [c;d]).
+  apply H.
+  apply H0.
+Qed.
 (** [] *)
 
 
