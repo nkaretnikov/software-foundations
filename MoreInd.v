@@ -73,7 +73,10 @@ Proof.
 Theorem plus_one_r' : forall n:nat, 
   n + 1 = S n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  apply nat_ind.
+  Case "O". reflexivity.
+  Case "S". simpl. intros. rewrite H. reflexivity.
+Qed.
 (** [] *)
 
 (** Coq generates induction principles for every datatype defined with
@@ -117,6 +120,12 @@ Inductive rgb : Type :=
   | red : rgb
   | green : rgb
   | blue : rgb.
+(* forall P : rgb -> Prop,
+     P red   ->
+     P green ->
+     P blue  ->
+     forall x : rgb, P x
+*)
 Check rgb_ind.
 (** [] *)
 
@@ -144,6 +153,19 @@ Inductive natlist1 : Type :=
   | nsnoc1 : natlist1 -> nat -> natlist1.
 
 (** Now what will the induction principle look like? *)
+(* forall P : natlist1 -> Prop,
+     P nnill1 ->
+     (forall (l : natlist1) (n : nat), P l -> P (nsnoc1 l n)) ->
+     forall n : natlist1, P n
+*)
+(* The actual definition is equivalent to the above, it just doesn't
+introduce n0 any earlier than it has to. *)
+Check natlist1_ind.
+(* natlist1_ind *)
+(*      : forall P : natlist1 -> Prop, *)
+(*        P nnil1 -> *)
+(*        (forall n : natlist1, P n -> forall n0 : nat, P (nsnoc1 n n0)) -> *)
+(*        forall n : natlist1, P n *)
 (** [] *)
 
 (** From these examples, we can extract this general rule:
@@ -172,8 +194,54 @@ Inductive byntree : Type :=
  | bempty : byntree  
  | bleaf  : yesno -> byntree
  | nbranch : yesno -> byntree -> byntree -> byntree.
+
+(* forall P : byntree -> Prop,
+     P bempty ->
+     (forall (y : yesno), P (bleaf y))
+     (forall (y : yesno) (b1 b2 : byntree),
+        P b1 -> P b2 -> P (nbranch y b1 b2)) ->
+     forall b : byntree, P b
+*)
+Check byntree_ind.
+(* byntree_ind *)
+(*      : forall P : byntree -> Prop, *)
+(*        P bempty -> *)
+(*        (forall y : yesno, P (bleaf y)) -> *)
+(*        (forall (y : yesno) (b : byntree), *)
+(*         P b -> forall b0 : byntree, P b0 -> P (nbranch y b b0)) -> *)
+(*        forall b : byntree, P b *)
 (** [] *)
 
+(* If [c] is a nullary constructor of type [t], then the generated
+   subgoal is [P c].  Otherwise, each value appearing in [c] needs to
+   be introduced via [forall], and all (recursive) references to [t]
+   generate a series of implications of form [P t] leading to [P c].
+   Constructors generate a series of implications leading to [forall v
+   : t, P v].
+
+   Each constructor must result in [t].
+ *)
+Module ind_test.
+Inductive rec : Type :=
+  | nullary : rec
+  | one_rec : nat -> rec -> rec
+  | two_rec : rec -> nat -> nat -> rec -> rec.
+
+(* forall P : rec -> Prop,
+     P nullary ->
+     (forall (n : nat) (r : rec), P r -> (one_rec n r)) ->
+     (forall (r1 r2 : rec) (n1 n2 : nat), P r1 -> P r2 -> (two_rec r1 n1 n2 r2)) ->
+     forall r : rec, P r
+*)
+Check rec_ind.
+(* rec_ind *)
+(*      : forall P : rec -> Prop, *)
+(*        P nullary -> *)
+(*        (forall (n : nat) (r : rec), P r -> P (one_rec n r)) -> *)
+(*        (forall r : rec, *)
+(*         P r -> forall (n n0 : nat) (r0 : rec), P r0 -> P (two_rec r n n0 r0)) -> *)
+(*        forall r : rec, P r *)
+End ind_test.
 
 (** **** Exercise: 1 star, optional (ex_set) *)
 (** Here is an induction principle for an inductively defined
@@ -186,8 +254,14 @@ Inductive byntree : Type :=
     Give an [Inductive] definition of [ExSet]: *)
 
 Inductive ExSet : Type :=
-  (* FILL IN HERE *)
-.
+  | con1 : bool -> ExSet
+  | con2 : nat -> ExSet -> ExSet.
+Check ExSet_ind.
+(* ExSet_ind *)
+(*      : forall P : ExSet -> Prop, *)
+(*        (forall b : bool, P (con1 b)) -> *)
+(*        (forall (n : nat) (e : ExSet), P e -> P (con2 n e)) -> *)
+(*        forall e : ExSet, P e *)
 (** [] *)
 
 (** What about polymorphic datatypes?
@@ -221,7 +295,17 @@ Inductive ExSet : Type :=
 Inductive tree (X:Type) : Type :=
   | leaf : X -> tree X
   | node : tree X -> tree X -> tree X.
+(* forall (X : Type) (P : tree X -> Prop),
+     (forall (x : X), P (leaf X x)) ->
+     (forall (t1 t2 : tree X), P t1 -> P t2 -> P (node X t1 t2)) ->
+     forall t : tree X, P t.
+*)
 Check tree_ind.
+(* tree_ind *)
+(*      : forall (X : Type) (P : tree X -> Prop), *)
+(*        (forall x : X, P (leaf X x)) -> *)
+(*        (forall t : tree X, P t -> forall t0 : tree X, P t0 -> P (node X t t0)) -> *)
+(*        forall t : tree X, P t *)
 (** [] *)
 
 (** **** Exercise: 1 star, optional (mytype) *)
@@ -234,7 +318,18 @@ Check tree_ind.
             (forall m : mytype X, P m -> 
                forall n : nat, P (constr3 X m n)) ->
             forall m : mytype X, P m                   
-*) 
+*)
+Inductive mytype (X : Type) : Type :=
+  | constr1 : X -> mytype X
+  | constr2 : nat -> mytype X
+  | constr3 : mytype X -> nat -> mytype X.
+Check mytype_ind.
+(* mytype_ind *)
+(*      : forall (X : Type) (P : mytype X -> Prop), *)
+(*        (forall x : X, P (constr1 X x)) -> *)
+(*        (forall n : nat, P (constr2 X n)) -> *)
+(*        (forall m : mytype X, P m -> forall n : nat, P (constr3 X m n)) -> *)
+(*        forall m : mytype X, P m *)
 (** [] *)
 
 (** **** Exercise: 1 star, optional (foo) *)
@@ -248,6 +343,18 @@ Check tree_ind.
                (forall n : nat, P (f1 n)) -> P (quux X Y f1)) ->
              forall f2 : foo X Y, P f2       
 *) 
+Inductive foo (X Y : Type) : Type :=
+  | bar  : X -> foo X Y
+  | baz  : Y -> foo X Y
+  | quux : forall (f1 : nat -> foo X Y), foo X Y.
+Check foo_ind.
+(* foo_ind *)
+(*      : forall (X Y : Type) (P : foo X Y -> Prop), *)
+(*        (forall x : X, P (bar X Y x)) -> *)
+(*        (forall y : Y, P (baz X Y y)) -> *)
+(*        (forall f1 : nat -> foo X Y, *)
+(*         (forall n : nat, P (f1 n)) -> P (quux X Y f1)) -> *)
+(*        forall f2 : foo X Y, P f2 *)
 (** [] *)
 
 (** **** Exercise: 1 star, optional (foo') *)
@@ -261,13 +368,15 @@ Inductive foo' (X:Type) : Type :=
    in the blanks, then check your answer with Coq.)
      foo'_ind :
         forall (X : Type) (P : foo' X -> Prop),
-              (forall (l : list X) (f : foo' X),
-                    _______________________ -> 
-                    _______________________   ) ->
-             ___________________________________________ ->
-             forall f : foo' X, ________________________
+              (forall (l : list X) (f : foo' X), P f -> P (C1 X l f)) ->
+              P (C2 X) ->
+             forall f1 : foo' X, P f1
 *)
-
+Check foo'_ind.
+(* foo'_ind *)
+(*      : forall (X : Type) (P : foo' X -> Prop), *)
+(*        (forall (l : list X) (f : foo' X), P f -> P (C1 X l f)) -> *)
+(*        P (C2 X) -> forall f1 : foo' X, P f1 *)
 (** [] *)
 
 (* ##################################################### *)
@@ -407,7 +516,53 @@ Proof.
     induction, and state the theorem and proof in terms of this
     defined proposition.  *)
 
-(* FILL IN HERE *)
+(* [n] needs to be the last argument because that's the one changed by
+[nat_ind]. *)
+Definition P_plus_assoc'' (m p n : nat) : Prop :=
+  n + (m + p) = (n + m) + p.
+
+Check nat_ind.
+(* nat_ind *)
+(*      : forall P : nat -> Prop, *)
+(*        P 0 -> (forall n : nat, P n -> P (S n)) -> forall n : nat, P n *)
+
+Theorem plus_assoc'': forall n m p : nat, P_plus_assoc'' m p n.
+Proof.
+  intros n m p.
+  (* Again, [nat_ind] accepts an argument of type [forall P : nat ->
+  Prop] where [nat] is the one that gets changed. *)
+  apply (nat_ind (P_plus_assoc'' m p)).
+  (* Or just *)
+  (* apply nat_ind. *)
+  Case "n = O". reflexivity.
+  Case "n = S n'".
+    unfold P_plus_assoc''. simpl. intros.
+    rewrite -> H. reflexivity. Qed.
+
+(* The common definiton can be used, but [nat_ind] needs to be applied
+   with [with (n := n)] in order to generate a proper subgoal. *)
+Definition P_plus_assoc''' (n m p : nat) : Prop :=
+  n + (m + p) = (n + m) + p.
+
+Theorem plus_assoc''': forall n m p : nat, P_plus_assoc''' n m p.
+Proof.
+  intros n m p.
+  apply nat_ind with (n := n).
+  Case "n = O". reflexivity.
+  Case "n = S n'".
+    unfold P_plus_assoc'''. simpl. intros.
+    rewrite -> H. reflexivity. Qed.
+
+Definition P_plus_comm''' (n m : nat) : Prop :=
+  n + m = m + n.
+
+Theorem plus_comm''': forall n m : nat, P_plus_comm''' n m.
+Proof.
+  intros n m.
+  apply nat_ind.
+  Case "m = O". unfold P_plus_comm'''. simpl. rewrite -> plus_0_r. reflexivity.
+  Case "m = S m'". unfold P_plus_comm'''. simpl. intros. rewrite <- H.
+    rewrite <- plus_n_Sm. reflexivity. Qed.
 (** [] *)
 
 
@@ -823,20 +978,28 @@ Check le_ind.
 
 (** **** Exercise: 2 stars, optional (foo_ind_principle) *)
 (** Suppose we make the following inductive definition:
-   Inductive foo (X : Set) (Y : Set) : Set :=
-     | foo1 : X -> foo X Y
-     | foo2 : Y -> foo X Y
-     | foo3 : foo X Y -> foo X Y.
+*)
+Inductive foo'' (X : Set) (Y : Set) : Set :=
+  | foo1 : X -> foo'' X Y
+  | foo2 : Y -> foo'' X Y
+  | foo3 : foo'' X Y -> foo'' X Y.
+(*
    Fill in the blanks to complete the induction principle that will be
    generated by Coq. 
    foo_ind
         : forall (X Y : Set) (P : foo X Y -> Prop),   
-          (forall x : X, __________________________________) ->
-          (forall y : Y, __________________________________) ->
-          (________________________________________________) ->
-           ________________________________________________
-
+          (forall x : X, P (foo1 X Y x)) ->
+          (forall y : Y, P (foo2 X Y y)) ->
+          (forall f : foo X Y, P f -> P (foo3 X Y f)) ->
+          forall f1 : foo X Y, P f1
 *)
+Check foo''_ind.
+(* foo''_ind *)
+(*      : forall (X Y : Set) (P : foo'' X Y -> Prop), *)
+(*        (forall x : X, P (foo1 X Y x)) -> *)
+(*        (forall y : Y, P (foo2 X Y y)) -> *)
+(*        (forall f1 : foo'' X Y, P f1 -> P (foo3 X Y f1)) -> *)
+(*        forall f2 : foo'' X Y, P f2 *)
 (** [] *)
 
 (** **** Exercise: 2 stars, optional (bar_ind_principle) *)
@@ -848,36 +1011,52 @@ Check le_ind.
           (forall (b : bool) (b0 : bar), P b0 -> P (bar3 b b0)) ->
           forall b : bar, P b
    Write out the corresponding inductive set definition.
-   Inductive bar : Set :=
-     | bar1 : ________________________________________
-     | bar2 : ________________________________________
-     | bar3 : ________________________________________.
-
 *)
+Inductive bar' : Set :=
+  | bar1 : nat -> bar'
+  | bar2 : bar' -> bar'
+  | bar3 : bool -> bar' -> bar'.
+Check bar'_ind.
+(* bar'_ind *)
+(*      : forall P : bar' -> Prop, *)
+(*        (forall n : nat, P (bar1 n)) -> *)
+(*        (forall b : bar', P b -> P (bar2 b)) -> *)
+(*        (forall (b : bool) (b0 : bar'), P b0 -> P (bar3 b b0)) -> *)
+(*        forall b : bar', P b *)
 (** [] *)
 
 (** **** Exercise: 2 stars, optional (no_longer_than_ind) *)
 (** Given the following inductively defined proposition:
-  Inductive no_longer_than (X : Set) : (list X) -> nat -> Prop :=
-    | nlt_nil  : forall n, no_longer_than X [] n
-    | nlt_cons : forall x l n, no_longer_than X l n -> 
-                               no_longer_than X (x::l) (S n)
-    | nlt_succ : forall l n, no_longer_than X l n -> 
-                             no_longer_than X l (S n).
+*)
+Inductive no_longer_than (X : Set) : (list X) -> nat -> Prop :=
+  | nlt_nil  : forall n, no_longer_than X [] n
+  | nlt_cons : forall x l n, no_longer_than X l n -> 
+                             no_longer_than X (x::l) (S n)
+  | nlt_succ : forall l n, no_longer_than X l n -> 
+                           no_longer_than X l (S n).
+(*
   write the induction principle generated by Coq.
   no_longer_than_ind
        : forall (X : Set) (P : list X -> nat -> Prop),
-         (forall n : nat, ____________________) ->
+         (forall n : nat, P [] n) ->
          (forall (x : X) (l : list X) (n : nat),
-          no_longer_than X l n -> ____________________ -> 
-                                  _____________________________ ->
+          no_longer_than X l n -> P l n ->
+                                  P (x::l) (S n)) ->
          (forall (l : list X) (n : nat),
-          no_longer_than X l n -> ____________________ -> 
-                                  _____________________________ ->
+          no_longer_than X l n -> P l n ->
+                                  P l (S n)) ->
          forall (l : list X) (n : nat), no_longer_than X l n -> 
-           ____________________
-
+           P l n
 *)
+Check no_longer_than_ind.
+(* no_longer_than_ind *)
+(*      : forall (X : Set) (P : list X -> nat -> Prop), *)
+(*        (forall n : nat, P [] n) -> *)
+(*        (forall (x : X) (l : list X) (n : nat), *)
+(*         no_longer_than X l n -> P l n -> P (x :: l) (S n)) -> *)
+(*        (forall (l : list X) (n : nat), *)
+(*         no_longer_than X l n -> P l n -> P l (S n)) -> *)
+(*        forall (l : list X) (n : nat), no_longer_than X l n -> P l n *)
 (** [] *)
 
 
@@ -921,13 +1100,24 @@ Check eq'_ind.
 (** **** Exercise: 1 star, optional (and_ind_principle) *)
 (** See if you can predict the induction principle for conjunction. *)
 
-(* Check and_ind. *)
+(* Inductive and (P Q : Prop) : Prop :=  conj : P -> Q -> P /\ Q *)
+Check and_ind.
+(* and_ind *)
+(*      : forall P Q P0 : Prop, (P -> Q -> P0) -> P /\ Q -> P0 *)
+
 (** [] *)
 
 (** **** Exercise: 1 star, optional (or_ind_principle) *)
 (** See if you can predict the induction principle for disjunction. *)
 
-(* Check or_ind. *)
+(* Inductive or (P Q : Prop) : Prop := *)
+(*     or_introl : P -> P \/ Q *)
+(*   | or_intror : Q -> P \/ Q *)
+
+Check or_ind.
+(* or_ind *)
+(*      : forall P Q P0 : Prop, (P -> P0) -> (Q -> P0) -> P \/ Q -> P0 *)
+
 (** [] *)
 
 Check and_ind.
@@ -967,7 +1157,9 @@ Check and_ind.
 (** **** Exercise: 1 star, optional (False_ind_principle) *)
 (** Can you predict the induction principle for falsehood? *)
 
-(* Check False_ind. *)
+Check False_ind.
+(* False_ind *)
+(*      : forall P : Prop, False -> P *)
 (** [] *)
 
 (** Here's the induction principle that Coq generates for existentials: *)
